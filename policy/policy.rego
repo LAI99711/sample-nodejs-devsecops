@@ -1,22 +1,21 @@
 package main
 
-deny[msg] {
+deny[msg] if {
   input.kind == "Pod"
-  not input.spec.securityContext.runAsNonRoot                  # ou runAsUser != 0
-  msg := "Pod niveau – execution en tant que root interdite"
+  not input.spec.securityContext.runAsNonRoot
+  msg := "Pod niveau – execution en tant que root interdite"
 }
 
-deny[msg] {
+deny[msg] if {
   input.kind == "Pod"
   some i
-  container := input.spec.containers[i]
-  container.securityContext.runAsUser == 0
-  msg := sprintf("Conteneur « %v » runAsUser: 0 (root)", [container.name])
+  input.spec.containers[i].securityContext.runAsUser == 0
+  msg := "Conteneur avec runAsUser: 0 (root)"
 }
 
-deny[msg] {
+deny[msg] if {
   input.kind == "Deployment"
   not input.spec.template.spec.securityContext.runAsNonRoot
-  msg := "Deployment niveau – runAsNonRoot doit être true"
+  msg := "Deployment niveau – runAsNonRoot doit être défini à true"
 }
 
