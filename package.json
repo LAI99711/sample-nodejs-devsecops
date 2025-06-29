@@ -25,7 +25,9 @@
   },
   "homepage": "https://github.com/llatinov/sample-nodejs-rest-stub#readme",
   "dependencies": {
-    "body-parser": "^1.18.2",
+    "body-parser": "^1.20.3",
+    "path-to-regexp":"^0.1.12",
+    "qs":"^6.10.3",
     "express": "^4.16.2"
   },
   "devDependencies": {
