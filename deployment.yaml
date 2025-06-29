@@ -11,4 +11,3 @@ spec:
       image: sample-node-app:latest
       securityContext:
         runAsUser: 1000
-
