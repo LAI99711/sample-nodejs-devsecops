@@ -1,51 +1,79 @@
 name: CI DevSecOps
 
+# Déclenchement du workflow sur push ou PR sur la branche master
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   security-pipeline:
     runs-on: ubuntu-latest
 
     steps:
+    # 1. Récupérer le code du dépôt
     - name: Checkout code
       uses: actions/checkout@v3
 
+    # 2. Installer Node.js (version 20)
     - name: Set up Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '20'
 
+    # 3. Installer les dépendances NPM
     - name: Install dependencies
       run: npm install
 
+    # === Partie 3a : Scan des dépendances Node.js avec Trivy FS ===
+    - name: Install Trivy for FS scan
+      run: |
+        # Télécharge le script d'installation et installe Trivy 0.39.0
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+          | sudo sh -s -- -b /usr/local/bin v0.39.0
+
+    - name: Scan dépendances avec Trivy FS
+      run: |
+        # Analyse tout le projet et échoue si vulnérabilités HIGH/CRITICAL
+        trivy fs --exit-code 1 --severity HIGH,CRITICAL --no-progress .
+
+    # === Partie 2 & 3b : Build et scan de l’image Docker ===
     - name: Build Docker image
       run: docker build -t sample-node-app .
 
-    - name: Scan Docker image with Trivy
+    - name: Scan image Docker avec Trivy
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: sample-node-app
+        image-ref: sample-node-app:latest
         format: table
         severity: CRITICAL,HIGH
 
+    # === Partie 2 : Linting du manifeste Kubernetes ===
     - name: Install yamllint
-      run: sudo apt-get install -y yamllint
+      run: sudo apt-get update && sudo apt-get install -y yamllint
 
     - name: Lint Kubernetes YAML
-      run: yamllint deployment.yaml
-
-    - name: Installer Conftest depuis release officielle
       run: |
-        CONFTEST_VERSION="0.61.2"
-        wget "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" -O conftest.tar.gz
+        # Vérifie la syntaxe et le style de deployment.yaml
+        yamllint deployment.yaml
+
+    # === Partie 4 : Politique de sécurité avec Conftest ===
+    - name: Installer Conftest v0.60.0
+      run: |
+        # Téléchargement de l’archive Conftest
+        CONFTEST_VERSION="0.60.0"
+        wget "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" \
+          -O conftest.tar.gz
+        # Extraction et installation
         tar -xzf conftest.tar.gz
         chmod +x conftest
         sudo mv conftest /usr/local/bin/conftest
 
-    - name: Vérification Conftest (policy.rego)
-      run: conftest test deployment.yaml --policy policy
+    - name: Vérification Conftest (policy)
+      run: |
+        # Affiche la version pour debug
+        echo "Version de Conftest :" && conftest --version
+        # Exécute les tests Rego sur deployment.yaml
+        conftest test deployment.yaml --policy policy
 
