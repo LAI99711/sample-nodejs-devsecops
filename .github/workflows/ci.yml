@@ -1,0 +1,51 @@
+name: CI DevSecOps
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Build Docker image
+      run: docker build -t sample-node-app .
+
+    - name: Scan Docker image with Trivy
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: sample-node-app
+        format: table
+        severity: CRITICAL,HIGH
+
+    - name: Install yamllint
+      run: sudo apt-get install -y yamllint
+
+    - name: Lint Kubernetes YAML
+      run: yamllint deployment.yaml
+
+    - name: Installer Conftest depuis release officielle
+      run: |
+        CONFTEST_VERSION="0.61.2"
+        wget "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" -O conftest.tar.gz
+        tar -xzf conftest.tar.gz
+        chmod +x conftest
+        sudo mv conftest /usr/local/bin/conftest
+
+    - name: Vérification Conftest (policy.rego)
+      run: conftest test deployment.yaml --policy policy
+
