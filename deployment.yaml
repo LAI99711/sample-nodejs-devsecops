@@ -4,8 +4,11 @@ kind: Pod
 metadata:
   name: sample-node-app
 spec:
+  securityContext:
+    runAsNonRoot: true
   containers:
     - name: node-app
       image: sample-node-app:latest
       securityContext:
-        runAsUser: 0
+        runAsUser: 1000
+
